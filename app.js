@@ -1,14 +1,15 @@
+const http      = require('http'),
+    net       = require('net'),
+    Aws       = require('aws-sdk'),
+    metrics   = new Aws.CloudWatch(),
+    s3        = new Aws.S3(),
+    namespace = 'Checkr';
+          
 exports.handler = (event, context, callback) => {
     'use strict';
-    
-    const http      = require('http'),
-          Aws       = require('aws-sdk'),
-          metrics   = new Aws.CloudWatch(),
-          s3        = new Aws.S3(),
-          namespace = 'Checkr';
           
     function main(args) {
-        s3.getObject({Bucket: args['Bucket'], Key: args['Key']}, (err, data) => {
+        s3.getObject({Bucket: args.Bucket, Key: args.Key}, (err, data) => {
             if (err) {
                 console.log(err);
                 callback(null, 'Failed fetching configuration');
@@ -18,7 +19,6 @@ exports.handler = (event, context, callback) => {
                 const config = JSON.parse(data.Body.toString('utf-8'));
                 console.log(config);
                 for (var index in config.targets) {
-                    //check(config.targets[index]);
                     setTimeout(check, 0, config.targets[index]);
                 }
                 callback(null, 'Check(s) scheduled');
@@ -29,6 +29,68 @@ exports.handler = (event, context, callback) => {
     }
     
     function check(target) {
+        switch (target.check) {
+            case 'http':
+                httpCheck(target);
+            break;
+            
+            default:
+                tcpCheck(target);
+            break;
+        }
+    }
+    
+    function tcpCheck(target) {
+        const client = new net.Socket();
+        
+        client.setTimeout(target.timeout);
+        
+        client.on('timeout', () => {
+            client.destroy();
+            var message = `Unable to connect service ${target.service} on ${target.host}:${target.port}`;
+            console.log(message);
+            putMetric(target.service, 'Downtime', 1);
+            callback(null, message);
+        });
+        
+        client.on('connect', () => {
+            var message = `Service ${target.service} on ${target.host}:${target.port} is up`;
+            client.destroy();
+            console.log(message);
+            putMetric(target.service, 'Uptime', 1);
+            callback(null, message);
+        });
+        
+        client.on('error', (e) => {
+            var message = 'TCP Error';
+            switch (e.code) {
+                case 'ECONNREFUSED': {
+                    message = `Unable to connect service ${target.service} on ${target.host}:${target.port}`;
+                    putMetric(target.service, 'Downtime', 1);
+                }
+                break;
+                    
+                case 'ECONNRESET': {
+                    message = `Unable to reach service ${target.service} on ${target.host}:${target.port}`;
+                    putMetric(target.service, 'Downtime', 1);
+                }
+                break;
+                    
+                default:
+                    message = `Failed to ping service ${target.service} on ${target.host}:${target.port}, error ${e.code}`;
+                break;
+            }
+            
+            console.log(message);
+            callback(null, message);
+        });
+        
+        client.connect(target.port, target.host, () => {
+            client.destroy();
+        });
+    }
+    
+    function httpCheck(target) {
         const options = {
           host: target.host,
           port: target.port,
@@ -37,7 +99,7 @@ exports.handler = (event, context, callback) => {
         request = http.request(options, (res) => {
             if (200 === res.statusCode) {
                 try{
-                    putMetric(options.host, 'Uptime',1);
+                    putMetric(target.service, 'Uptime',1);
                 } catch(e) {
                     console.log(e);
                 }
@@ -57,9 +119,10 @@ exports.handler = (event, context, callback) => {
         // Exception handler for http request
         request.on('error', (e) => {
             if (e.code === 'ECONNRESET') {
-              console.log('Unable to reach target host');
-              putMetric(options.host, 'Downtime', 1);
-              callback(null, 'Unable to reach target host');
+                var message = `Unable to connect service ${target.service} on ${target.host}:${target.port}`;
+                console.log(message);
+                putMetric(target.service, 'Downtime', 1);
+                callback(null, message);
             } else {
              console.log(e);
             }
@@ -69,15 +132,15 @@ exports.handler = (event, context, callback) => {
         request.end();
     }
     
-  function createMetric (hostName, metricName, datum) {
+  function createMetric (service, metricName, datum) {
      return  {
         MetricData: [ 
             {
               MetricName: metricName, 
               Dimensions: [
                 {
-                  Name: 'Host', 
-                  Value: hostName
+                  Name: 'Service',
+                  Value: service
                 },
               ],
               StorageResolution: 1,
@@ -90,8 +153,8 @@ exports.handler = (event, context, callback) => {
      };
     }
 
-  function putMetric (hostName, metricName, datum)  {
-    const metric = createMetric(hostName, metricName, datum);
+  function putMetric (service, metricName, datum)  {
+    const metric = createMetric(service, metricName, datum);
     try {
         const putRequest = metrics.putMetricData(metric, (err, data) => {
           if (err) {

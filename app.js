@@ -1,4 +1,4 @@
-const http      = require('http'),
+const http    = require('http'),
     net       = require('net'),
     Aws       = require('aws-sdk'),
     metrics   = new Aws.CloudWatch(),

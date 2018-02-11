@@ -1,3 +1,4 @@
+/*eslint no-console: ["error", { allow: ["warn", "error", "log"] }] */
 const http    = require('http'),
     net       = require('net'),
     Aws       = require('aws-sdk'),

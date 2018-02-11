@@ -30,12 +30,12 @@ exports.handler = (event, context, callback) => {
     
     function check(target) {
         switch (target.check) {
-            case 'http':
-                httpCheck(target);
+        case 'http':
+            httpCheck(target);
             break;
             
-            default:
-                tcpCheck(target);
+        default:
+            tcpCheck(target);
             break;
         }
     }
@@ -64,20 +64,20 @@ exports.handler = (event, context, callback) => {
         client.on('error', (e) => {
             var message = 'TCP Error';
             switch (e.code) {
-                case 'ECONNREFUSED': {
-                    message = `Unable to connect service ${target.service} on ${target.host}:${target.port}`;
-                    putMetric(target.service, 'Downtime', 1);
-                }
+            case 'ECONNREFUSED': {
+                message = `Unable to connect service ${target.service} on ${target.host}:${target.port}`;
+                putMetric(target.service, 'Downtime', 1);
+            }
                 break;
                     
-                case 'ECONNRESET': {
-                    message = `Unable to reach service ${target.service} on ${target.host}:${target.port}`;
-                    putMetric(target.service, 'Downtime', 1);
-                }
+            case 'ECONNRESET': {
+                message = `Unable to reach service ${target.service} on ${target.host}:${target.port}`;
+                putMetric(target.service, 'Downtime', 1);
+            }
                 break;
                     
-                default:
-                    message = `Failed to ping service ${target.service} on ${target.host}:${target.port}, error ${e.code}`;
+            default:
+                message = `Failed to ping service ${target.service} on ${target.host}:${target.port}, error ${e.code}`;
                 break;
             }
             
@@ -92,21 +92,21 @@ exports.handler = (event, context, callback) => {
     
     function httpCheck(target) {
         const options = {
-          host: target.host,
-          port: target.port,
-          path: target.path
-        },
-        request = http.request(options, (res) => {
-            if (200 === res.statusCode) {
-                try{
-                    putMetric(target.service, 'Uptime',1);
-                } catch(e) {
-                    console.log(e);
+                host: target.host,
+                port: target.port,
+                path: target.path
+            },
+            request = http.request(options, (res) => {
+                if (200 === res.statusCode) {
+                    try{
+                        putMetric(target.service, 'Uptime',1);
+                    } catch(e) {
+                        console.log(e);
+                    }
+                } else {
+                    callback(null, `Host Responded with status code ${res.statusCode}`);
                 }
-            } else {
-              callback(null, `Host Responded with status code ${res.statusCode}`);
-            }
-        });
+            });
     
         // Timeout aftet target.timeout milliseconds
         request.on('socket', (socket) => {
@@ -124,7 +124,7 @@ exports.handler = (event, context, callback) => {
                 putMetric(target.service, 'Downtime', 1);
                 callback(null, message);
             } else {
-             console.log(e);
+                console.log(e);
             }
             callback(null, 'HTTP Request Error');
         });
@@ -132,42 +132,42 @@ exports.handler = (event, context, callback) => {
         request.end();
     }
     
-  function createMetric (service, metricName, datum) {
-     return  {
-        MetricData: [ 
-            {
-              MetricName: metricName, 
-              Dimensions: [
+    function createMetric (service, metricName, datum) {
+        return  {
+            MetricData: [ 
                 {
-                  Name: 'Service',
-                  Value: service
+                    MetricName: metricName, 
+                    Dimensions: [
+                        {
+                            Name: 'Service',
+                            Value: service
+                        },
+                    ],
+                    StorageResolution: 1,
+                    Timestamp: new Date(),
+                    Unit: 'Count',
+                    Value: datum
                 },
-              ],
-              StorageResolution: 1,
-              Timestamp: new Date(),
-              Unit: 'Count',
-              Value: datum
-            },
-          ],
-        Namespace: namespace 
-     };
+            ],
+            Namespace: namespace 
+        };
     }
 
-  function putMetric (service, metricName, datum)  {
-    const metric = createMetric(service, metricName, datum);
-    try {
-        const putRequest = metrics.putMetricData(metric, (err, data) => {
-          if (err) {
-              console.log(err);
-          } else {
-              console.log(data);
-          }
-          callback(null, 'Metric Populated');
-        });
-    } catch(e) {
-        console.log(e);
+    function putMetric (service, metricName, datum)  {
+        const metric = createMetric(service, metricName, datum);
+        try {
+            metrics.putMetricData(metric, (err, data) => {
+                if (err) {
+                    console.log(err);
+                } else {
+                    console.log(data);
+                }
+                callback(null, 'Metric Populated');
+            });
+        } catch(e) {
+            console.log(e);
+        }
     }
-  }
     
-  main(process.env);
+    main(process.env);
 };

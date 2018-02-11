@@ -23,16 +23,6 @@
         }).bind(this));
     };
 
-    SshTransport.prototype.promise = function(params) {
-        return new Promise((function(resolve, reject) {
-            if(!this.connected) {
-                this.connect(this.execSShCommand.bind(this, params, resolve, reject));
-            } else {
-                this.execSShCommand(params, resolve, reject);
-            }
-        }).bind(this));
-    };
-
     SshTransport.prototype.connect = function(connectCb) {
         this.onConnected.bind(this, connectCb);
         this.sshClient.connect({

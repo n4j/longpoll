@@ -1,0 +1,31 @@
+{
+  "name": "longpoll",
+  "version": "0.0.1",
+  "description": "Serverless health checks for a price of Starbucks coffe",
+  "main": "app.js",
+  "scripts": {
+    "test": "node_modules/mocha/bin/mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n4j/longpoll.git"
+  },
+  "keywords": [
+    "serverless",
+    "metrics",
+    "health-checks"
+  ],
+  "author": "Neeraj Shah <neerajx86@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/n4j/longpoll/issues"
+  },
+  "homepage": "https://github.com/n4j/longpoll#readme",
+  "dependencies": {
+    "aws-sdk": "^2.192.0",
+    "node-ssh": "^5.1.0"
+  },
+  "devDependencies": {
+    "mocha": "^5.0.0"
+  }
+}
